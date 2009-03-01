@@ -31,19 +31,20 @@ $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 #version function
 sub main::VERSION_MESSAGE {
-        print "pkg_findupdates 0.0.0\n";
+        print "pkg_findupdates 0.1.0\n";
 }
 
 #print help
 sub main::HELP_MESSAGE {
         print "\n".
 		      "-d  Print downgraded ports.\n".
-		      "-u  Print upgraded ports.\n";
+		      "-u  Print upgraded ports.\n".
+			  "-r  print requirements";
 }
 
 #gets the options
 my %opts=();
-getopts('du', \%opts);
+getopts('dur', \%opts);
 
 if (!defined($opts{d}) && !defined($opts{u})) {
 	warn('pkg_findupdates: Neither -d or -u given');
@@ -59,6 +60,38 @@ if ($opts{u}) {
         print $name.' updated from "'.
         $pkg->{oldversion}.'" to "'.
         $pkg->{newversion}."\"\n";
+		if ($opts{r}) {
+			my $fdeps=join("\n  ", @{$pkg->{Fdeps}});
+			if ($fdeps ne '') {
+				print " Fdeps...\n  ".$fdeps."\n";
+				if (!$fdeps =~ /\n$/) {
+					print "\n";
+				}
+			}
+			my $edeps=join("\n  ", @{$pkg->{Edeps}});
+			if ($fdeps ne '') {
+				print " Edeps...\n  ".$edeps."\n";
+			}
+			my $bdeps=join("\n  ", @{$pkg->{Bdeps}});
+			if ($bdeps ne '') {
+				print " Bdeps...\n  ".$bdeps."\n";
+				if (!$fdeps =~ /\n$/) {
+					print "\n";
+				}
+			}
+			my $rdeps=join("\n  ", @{$pkg->{Rdeps}});
+			if ($rdeps ne '') {
+				print " Rdeps...\n  ".$rdeps."\n";
+				if (!$fdeps =~ /\n$/) {
+					print "\n";
+				}
+			}
+			my $pdeps=join("\n  ", @{$pkg->{Pdeps}});
+			if ($pdeps ne '') {
+				print " Pdeps...\n  ".$pdeps."\n";
+
+			}
+		}
 	}
 }
 
@@ -68,6 +101,38 @@ if ($opts{d}) {
         print $name.' downgraded from "'.
         $pkg->{oldversion}.'" to "'.
         $pkg->{newversion}."\"\n";
+		if ($opts{r}) {
+			my $fdeps=join("\n  ", @{$pkg->{Fdeps}});
+			if ($fdeps ne '') {
+				print " Fdeps...\n  ".$fdeps."\n";
+				if (!$fdeps =~ /\n$/) {
+					print "\n";
+				}
+			}
+			my $edeps=join("\n  ", @{$pkg->{Edeps}});
+			if ($fdeps ne '') {
+				print " Edeps...\n  ".$edeps."\n";
+			}
+			my $bdeps=join("\n  ", @{$pkg->{Bdeps}});
+			if ($bdeps ne '') {
+				print " Bdeps...\n  ".$bdeps."\n";
+				if (!$fdeps =~ /\n$/) {
+					print "\n";
+				}
+			}
+			my $rdeps=join("\n  ", @{$pkg->{Rdeps}});
+			if ($rdeps ne '') {
+				print " Rdeps...\n  ".$rdeps."\n";
+				if (!$fdeps =~ /\n$/) {
+					print "\n";
+				}
+			}
+			my $pdeps=join("\n  ", @{$pkg->{Pdeps}});
+			if ($pdeps ne '') {
+				print " Pdeps...\n  ".$pdeps."\n";
+
+			}
+		}
 	}
 }
 
@@ -77,9 +142,9 @@ pkg_findupdates - Finds updated packages.
 
 =head1 SYNOPSIS
 
-pkg_findupdates -u
-pkg_findupdates -d
-pkg_findupdates -d -u
+pkg_findupdates -u [B<-r>]
+pkg_findupdates -d [B<-r>]
+pkg_findupdates -d -u [B<-r>]
 
 =head1 ARGUEMENTS
 
@@ -90,4 +155,10 @@ Print updated ports.
 =head2 -d
 
 Print downgraded ports.
+
+=head2 -r
+
+Print depedency information.
+
+=cut
 

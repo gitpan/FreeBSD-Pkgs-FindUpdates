@@ -12,11 +12,11 @@ FreeBSD::Pkgs::FindUpdates - Finds updates for FreeBSD pkgs by checking the port
 
 =head1 VERSION
 
-Version 0.0.0
+Version 0.1.0
 
 =cut
 
-our $VERSION = '0.0.0';
+our $VERSION = '0.1.0';
 
 
 =head1 SYNOPSIS
@@ -69,16 +69,18 @@ This finds any changes creates a hash.
 =cut
 
 sub find {
-	my %args;
+	my %index;
 	if(defined($_[1])){
-		%args= %{$_[1]};
+		%index= %{$_[1]};
+	}else {
+		%index=INDEXhash();
 	};
 
 	#parse the installed packages
 	my $pkgdb=FreeBSD::Pkgs->new;
-	$pkgdb->parseInstalled;
+	$pkgdb->parseInstalled({files=>0});
 
-	my %index=INDEXhash();
+	%index=INDEXhash();
 
 
 	#a hash of stuff that needes changed
@@ -104,7 +106,9 @@ sub find {
 		#if this is not defined, we can't upgrade it... so skip it
 		#stuff in stalled via cpan will do this
 		if (!defined($src)) {
-			warn('FreeBSD-Pkgs-FindUpdates find:1: No origin for "'.$pkgname.'"');
+			if (!$pkgname =~ /^bsdpan-/) {
+				warn('FreeBSD-Pkgs-FindUpdates find:1: No origin for "'.$pkgname.'"');
+			}
 		}else{
 			#
 			my $portSearch=1;
@@ -133,25 +137,38 @@ sub find {
 						#if the pkg versionis less than the port version, it needs to be upgraded
 						if (versioncmp($pkgversion, $portversion) == -1) {
 							$change{upgrade}{$pkgname}={old=>$pkgname, new=>$portname,
-												oldversion=>$pkgversion,
-												newversion=>$portversion,
-												port=>$path};
+														oldversion=>$pkgversion,
+														newversion=>$portversion,
+														port=>$path,
+														Edeps=>\@{$port->{Edeps}},
+														Bdeps=>\@{$port->{Bdeps}},
+														Pdeps=>\@{$port->{Pdeps}},
+														Rdeps=>\@{$port->{Rdeps}},
+														Fdeps=>\@{$port->{Fdeps}},
+														};
 						}
 
 						#if the pkg version and the port version are the same it is the same
 						if (versioncmp($pkgversion, $portversion) == 0) {
 							$change{same}{$pkgname}={old=>$pkgname, new=>$portname,
-												oldversion=>$pkgversion,
-												newversion=>$portversion,
-												port=>$path};
+													 oldversion=>$pkgversion,
+													 newversion=>$portversion,
+													 port=>$path
+													 };
 						}
 
 						#if the pkg version is greater than the port version, it needs to be downgraded
 						if (versioncmp($pkgversion, $portversion) == 1) {
 							$change{downgrade}{$pkgname}={old=>$pkgname, new=>$portname,
-												oldversion=>$pkgversion,
-												newversion=>$portversion,
-												port=>$path};
+														  oldversion=>$pkgversion,
+														  newversion=>$portversion,
+														  port=>$path,
+														  Edeps=>\@{$port->{Edeps}},
+														  Bdeps=>\@{$port->{Bdeps}},
+														  Pdeps=>\@{$port->{Pdeps}},
+														  Rdeps=>\@{$port->{Rdeps}},
+														  Fdeps=>\@{$port->{Fdeps}},
+														  };
 						}
 
 					}
