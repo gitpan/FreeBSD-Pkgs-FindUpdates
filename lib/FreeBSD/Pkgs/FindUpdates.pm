@@ -12,7 +12,7 @@ FreeBSD::Pkgs::FindUpdates - Finds updates for FreeBSD pkgs by checking the port
 
 =head1 VERSION
 
-Version 0.1.0
+Version 0.2.0
 
 =cut
 
@@ -66,6 +66,18 @@ sub new {
 
 This finds any changes creates a hash.
 
+Two arguements are optionally accepted. The first
+is a hash returned from INDEXhash
+
+    #basic usage...
+    my %changes=$pkgsupdate->find;
+
+    #create the INDEXhash and pkgdb and then pass it
+    my $pkgdb=FreeBSD::Pkgs->new;
+    $pkgdb->parseInstalled({files=>0});
+    my %index=INDEXhash();
+    my %changes=$pkgsupdate->find(\%index, $pkgdb);
+
 =cut
 
 sub find {
@@ -75,23 +87,27 @@ sub find {
 	}else {
 		%index=INDEXhash();
 	};
-
-	#parse the installed packages
-	my $pkgdb=FreeBSD::Pkgs->new;
-	$pkgdb->parseInstalled({files=>0});
-
-	%index=INDEXhash();
-
+	my $pkgdb;
+	if (defined($_[2])) {
+		$pkgdb=$_[2];
+	}else {
+		#parse the installed packages
+		$pkgdb=FreeBSD::Pkgs->new;
+		$pkgdb->parseInstalled({files=>0});
+	}
 
 	#a hash of stuff that needes changed
 	my %change;
 	$change{upgrade}={};
 	$change{same}={};
 	$change{downgrade}={};
+	$change{from}={};
+	$change{to}={};
 
 	#process it
 	while(my ($pkgname, $pkg) = each %{$pkgdb->{packages}}){
 		my $src=$pkg->{contents}{origin};
+		my $path=$src;
 
 		#versionless packagename
 		my $vpkgname=$pkgname;
@@ -110,74 +126,58 @@ sub find {
 				warn('FreeBSD-Pkgs-FindUpdates find:1: No origin for "'.$pkgname.'"');
 			}
 		}else{
-			#
-			my $portSearch=1;
-			while((my ($portname, $port) = each %index) && $portSearch){
-				my $path=$port->{path};
-				#this should never happen...
-				if (!defined($path)) {
-					warn('FreeBSD-Pkgs-FindUpdates find:2: No path for "'.$portname.'"');
-				}else {
-					$path=~s/.*\/ports\///g;
-					if ($src eq $path) {
-						#versionless portname
-						my $vportname=$portname;
-						my @vportnameSplit=split(/-/, $vportname);
-						$int=$#vportnameSplit - 1;#just called int as I can't think of a better name
-						$vportname=join('-', @vportnameSplit[0..$int]);
+			my $portname=$index{soriginsD2N}{$path};
 
-						#get the port version
-						my $portversion=$portname;
-						$portversion=~s/.*-//;
-
-						#
-#						my $pkgv=version->new($pkgversion);
-#						my $portv=version->new($portversion);
-
-						#if the pkg versionis less than the port version, it needs to be upgraded
-						if (versioncmp($pkgversion, $portversion) == -1) {
-							$change{upgrade}{$pkgname}={old=>$pkgname, new=>$portname,
-														oldversion=>$pkgversion,
-														newversion=>$portversion,
-														port=>$path,
-														Edeps=>\@{$port->{Edeps}},
-														Bdeps=>\@{$port->{Bdeps}},
-														Pdeps=>\@{$port->{Pdeps}},
-														Rdeps=>\@{$port->{Rdeps}},
-														Fdeps=>\@{$port->{Fdeps}},
-														};
-						}
-
-						#if the pkg version and the port version are the same it is the same
-						if (versioncmp($pkgversion, $portversion) == 0) {
-							$change{same}{$pkgname}={old=>$pkgname, new=>$portname,
-													 oldversion=>$pkgversion,
-													 newversion=>$portversion,
-													 port=>$path
-													 };
-						}
-
-						#if the pkg version is greater than the port version, it needs to be downgraded
-						if (versioncmp($pkgversion, $portversion) == 1) {
-							$change{downgrade}{$pkgname}={old=>$pkgname, new=>$portname,
-														  oldversion=>$pkgversion,
-														  newversion=>$portversion,
-														  port=>$path,
-														  Edeps=>\@{$port->{Edeps}},
-														  Bdeps=>\@{$port->{Bdeps}},
-														  Pdeps=>\@{$port->{Pdeps}},
-														  Rdeps=>\@{$port->{Rdeps}},
-														  Fdeps=>\@{$port->{Fdeps}},
-														  };
-						}
-
-					}
-				}
+			if (!defined($portname)) {
+				warn("No port found for '".$path."'");
+				goto versionCompareEnd;
 			}
-		}
-		
-	}
 
+			#versionless portname
+			my $vportname=$portname;
+			my @vportnameSplit=split(/-/, $vportname);
+			$int=$#vportnameSplit - 1;#just called int as I can't think of a better name
+			$vportname=join('-', @vportnameSplit[0..$int]);
+			
+			#get the port version
+			my $portversion=$portname;
+			$portversion=~s/.*-//;
+			
+			#if the pkg versionis less than the port version, it needs to be upgraded
+			if (versioncmp($pkgversion, $portversion) == -1) {
+				$change{upgrade}{$pkgname}={old=>$pkgname, new=>$portname,
+											oldversion=>$pkgversion,
+											newversion=>$portversion,
+											port=>$path,
+											};
+				$change{from}{$pkgname}=$portname;
+				$change{to}{$portname}=$pkgname;
+			}
+			
+			#if the pkg version and the port version are the same it is the same
+			if (versioncmp($pkgversion, $portversion) == 0) {
+				$change{same}{$pkgname}={old=>$pkgname, new=>$portname,
+										 oldversion=>$pkgversion,
+										 newversion=>$portversion,
+										 port=>$path
+										 };
+			}
+			
+			#if the pkg version is greater than the port version, it needs to be downgraded
+			if (versioncmp($pkgversion, $portversion) == 1) {
+				$change{downgrade}{$pkgname}={old=>$pkgname, new=>$portname,
+											  oldversion=>$pkgversion,
+											  newversion=>$portversion,
+											  port=>$path,
+											  };
+				$change{to}{$pkgname}=$portname;
+				$change{from}{$portname}=$pkgname;
+			}
+
+			versionCompareEnd:
+		}
+	}
+	
 	return %change;
 }
 
@@ -193,6 +193,11 @@ The name of the installed package is used as the primary key in each.
 
 This is a hash that contains a list of packages to be down graded.
 
+=head2 from
+
+The keys to this hash are the packages that will be change from. The values
+are the names that it will changed to.
+
 =head2 upgrade
 
 This is a hash that contains a list of packages to be up graded.
@@ -200,6 +205,11 @@ This is a hash that contains a list of packages to be up graded.
 =head2 same
 
 This means there is no change.
+
+=head2 to
+
+The keys to this hash are the packages that will be change to. The values
+are the names that it will changed from.
 
 =head2 sub hash
 

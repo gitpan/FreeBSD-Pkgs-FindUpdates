@@ -1,4 +1,8 @@
 Revision history for FreeBSD-Pkgs-FindUpdates
 
+0.2.0	2009-03-25/13:00
+		-Massive speed improvements.
+		-Added 'pkg_bupdate' for performaing binary updates.
+
 0.1.0	2009-03-01/13:00
 		-No includes dependency info in the returned hash.
