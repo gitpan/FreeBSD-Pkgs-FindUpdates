@@ -12,11 +12,11 @@ FreeBSD::Pkgs::FindUpdates - Finds updates for FreeBSD pkgs by checking the port
 
 =head1 VERSION
 
-Version 0.2.0
+Version 0.2.1
 
 =cut
 
-our $VERSION = '0.1.0';
+our $VERSION = '0.2.1';
 
 
 =head1 SYNOPSIS

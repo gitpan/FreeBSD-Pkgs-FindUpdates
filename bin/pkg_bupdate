@@ -360,7 +360,7 @@ while(our ($name, $pkg) = each %{$changes{downgrade}}){
 
 =head1 NAME
 
-pkg_findupdates - Finds updated packages.
+pkg_bupdate - Do a binary packages update.
 
 =head1 SYNOPSIS
 
