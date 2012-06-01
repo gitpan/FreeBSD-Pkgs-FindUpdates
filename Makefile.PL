@@ -14,6 +14,7 @@ WriteMakefile(
 		'Sort::Versions' => 0,
 		'FreeBSD::Ports::INDEXhash' => 0,
         'FreeBSD::Pkgs' => 0,
+		'Error::Helper'=>0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'FreeBSD-Pkgs-FindUpdates-*' },

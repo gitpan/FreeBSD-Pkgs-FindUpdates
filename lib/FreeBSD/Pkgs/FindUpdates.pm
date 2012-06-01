@@ -5,6 +5,7 @@ use strict;
 use FreeBSD::Pkgs;
 use FreeBSD::Ports::INDEXhash qw/INDEXhash/;
 use Sort::Versions;
+use Error::Helper;
 
 =head1 NAME
 
@@ -12,11 +13,11 @@ FreeBSD::Pkgs::FindUpdates - Finds updates for FreeBSD pkgs by checking the port
 
 =head1 VERSION
 
-Version 0.2.1
+Version 0.3.0
 
 =cut
 
-our $VERSION = '0.2.1';
+our $VERSION = '0.3.0';
 
 
 =head1 SYNOPSIS
@@ -26,9 +27,9 @@ index file, you will want to see the supported methodes for it in that module.
 
     use FreeBSD::Pkgs::FindUpdates;
     #initiates the module
-    my $pkgsupdate = FreeBSD::Pkgs::FindUpdates->new();
+    my $pkgsupdate = FreeBSD::Pkgs::FindUpdates->new;
     #finds changes
-    my %changes=$pkgsupdate->find();
+    my %changes=$pkgsupdate->find;
     #prints the upgraded stuff
     while(my ($name, $pkg) = each %{$changes{upgrade}}){
         print $name.' updated from "'.
@@ -42,7 +43,7 @@ index file, you will want to see the supported methodes for it in that module.
               $pkg->{newversion}."\"\n";
     }
 
-=head1 FUNCTIONS
+=head1 METHODS
 
 =head2 new
 
@@ -56,10 +57,12 @@ sub new {
 		%args= %{$_[1]};
 	};
 
-	my $self={error=>undef, errorString=>''};
+	my $self={
+		error=>undef,
+		errorString=>''
+	};
 	bless $self;
 	return $self;
-
 }
 
 =head2 find
@@ -71,22 +74,30 @@ is a hash returned from INDEXhash
 
     #basic usage...
     my %changes=$pkgsupdate->find;
-
+    
     #create the INDEXhash and pkgdb and then pass it
     my $pkgdb=FreeBSD::Pkgs->new;
-    $pkgdb->parseInstalled({files=>0});
-    my %index=INDEXhash();
+    $pkgdb->parseInstalled;
+    if ( $pkgdb->error ){
+        warn('Error: FreeBSD::Pkgs->new errored');
+    }
+    
+    my %index=INDEXhash;
     my %changes=$pkgsupdate->find(\%index, $pkgdb);
+    if ( $pkgsupdate->error ){
+        warn('Error:'.$pkgsupdate->error.': '.$pkgsupdate->errorString);
+    }
 
 =cut
 
 sub find {
+	my $self=$_[0];
 	my %index;
 	if(defined($_[1])){
 		%index= %{$_[1]};
 	}else {
 		%index=INDEXhash();
-	};
+	}
 	my $pkgdb;
 	if (defined($_[2])) {
 		$pkgdb=$_[2];
@@ -94,6 +105,13 @@ sub find {
 		#parse the installed packages
 		$pkgdb=FreeBSD::Pkgs->new;
 		$pkgdb->parseInstalled({files=>0});
+		if ( $pkgdb->error ){
+			$self->{error}=1;
+			$self->{errorString}='FreeBSD::Pkgs->paseInstalled errored. error="'.
+				$pkgdb->error.'" errorString="'.$pkgdb->errorString.'"';
+			$self->warn;
+			return undef;
+		}
 	}
 
 	#a hash of stuff that needes changed
@@ -108,17 +126,17 @@ sub find {
 	while(my ($pkgname, $pkg) = each %{$pkgdb->{packages}}){
 		my $src=$pkg->{contents}{origin};
 		my $path=$src;
-
+		
 		#versionless packagename
 		my $vpkgname=$pkgname;
 		my @vpkgnameSplit=split(/-/, $vpkgname);
 		my $int=$#vpkgnameSplit - 1;#just called int as I can't think of a better name
 		$vpkgname=join('-', @vpkgnameSplit[0..$int]);
-
+		
 		#get the pkg version
 		my $pkgversion=$pkgname;
 		$pkgversion=~s/.*-//;
-
+		
 		#if this is not defined, we can't upgrade it... so skip it
 		#stuff in stalled via cpan will do this
 		if (!defined($src)) {
@@ -127,12 +145,12 @@ sub find {
 			}
 		}else{
 			my $portname=$index{soriginsD2N}{$path};
-
+			
 			if (!defined($portname)) {
 				warn("No port found for '".$path."'");
 				goto versionCompareEnd;
 			}
-
+			
 			#versionless portname
 			my $vportname=$portname;
 			my @vportnameSplit=split(/-/, $vportname);
@@ -149,7 +167,7 @@ sub find {
 											oldversion=>$pkgversion,
 											newversion=>$portversion,
 											port=>$path,
-											};
+				};
 				$change{from}{$pkgname}=$portname;
 				$change{to}{$portname}=$pkgname;
 			}
@@ -160,7 +178,7 @@ sub find {
 										 oldversion=>$pkgversion,
 										 newversion=>$portversion,
 										 port=>$path
-										 };
+				};
 			}
 			
 			#if the pkg version is greater than the port version, it needs to be downgraded
@@ -169,12 +187,12 @@ sub find {
 											  oldversion=>$pkgversion,
 											  newversion=>$portversion,
 											  port=>$path,
-											  };
+				};
 				$change{to}{$pkgname}=$portname;
 				$change{from}{$portname}=$pkgname;
 			}
-
-			versionCompareEnd:
+			
+		  versionCompareEnd:
 		}
 	}
 	
@@ -235,19 +253,17 @@ This is the version ofwhat it will be changed toif upgraded/downgraded.
 
 This is the port that provides it.
 
-=head1 ERROR
+=head1 ERROR CODES/HANDLING
+
+Error handling is provided by L<Error::Helper>.
 
 =head2 1
 
-No origin for a specified package. This is not a fatal error.
-
-=head2 2
-
-A line in the INDEX file is missing the path to the ports directory for that port.
+FreeBSD::Pkgs errored.
 
 =head1 AUTHOR
 
-Zane C. Bowers, C<< <vvelox at vvelox.net> >>
+Zane C. Bowers-Hadley, C<< <vvelox at vvelox.net> >>
 
 =head1 BUGS
 
@@ -290,7 +306,7 @@ L<http://search.cpan.org/dist/FreeBSD-Pkgs-FindUpdates>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008 Zane C. Bowers, all rights reserved.
+Copyright 2012 Zane C. Bowers-Hadley, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
